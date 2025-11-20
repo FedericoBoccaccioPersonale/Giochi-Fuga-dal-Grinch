@@ -1,0 +1,300 @@
+<!DOCTYPE html>
+<html lang="it">
+<head>
+    <meta charset="UTF-8">
+    <title>Fuga dal Grinch - Mercatino di Natale 3D</title>
+    <style>
+        body { margin: 0; overflow: hidden; background-color: #87CEEB; font-family: 'Arial', sans-serif; }
+        #ui {
+            position: absolute;
+            top: 20px;
+            left: 20px;
+            color: white;
+            text-shadow: 2px 2px 4px #000;
+            pointer-events: none;
+        }
+        h1 { margin: 0; font-size: 24px; }
+        #score { font-size: 40px; font-weight: bold; color: #FFD700; }
+        #gameOver {
+            display: none;
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            background: rgba(0, 0, 0, 0.8);
+            color: white;
+            padding: 40px;
+            text-align: center;
+            border-radius: 15px;
+            border: 4px solid #c0392b;
+        }
+        button {
+            background-color: #27ae60;
+            color: white;
+            border: none;
+            padding: 15px 30px;
+            font-size: 20px;
+            cursor: pointer;
+            margin-top: 20px;
+            border-radius: 5px;
+        }
+        button:hover { background-color: #2ecc71; }
+    </style>
+</head>
+<body>
+
+<div id="ui">
+    <h1>🎄 Fuga al Mercatino</h1>
+    <div>Decorazioni: <span id="score">0</span></div>
+    <p>Usa le FRECCE o W/A/S/D per muoverti.</p>
+</div>
+
+<div id="gameOver">
+    <h1 style="color: #e74c3c;">IL GRINCH TI HA PRESO!</h1>
+    <p>Hai salvato <span id="finalScore">0</span> decorazioni.</p>
+    <button onclick="location.reload()">Riprova 🎅</button>
+</div>
+
+<script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+
+<script>
+    // --- CONFIGURAZIONE SCENA ---
+    const scene = new THREE.Scene();
+    scene.background = new THREE.Color(0x87CEEB); // Cielo azzurro inverno
+    scene.fog = new THREE.Fog(0x87CEEB, 10, 60); // Nebbia per atmosfera
+
+    const camera = new THREE.PerspectiveCamera(75, window.innerWidth / window.innerHeight, 0.1, 1000);
+    const renderer = new THREE.WebGLRenderer({ antialias: true });
+    renderer.setSize(window.innerWidth, window.innerHeight);
+    renderer.shadowMap.enabled = true;
+    document.body.appendChild(renderer.domElement);
+
+    // --- LUCI ---
+    const ambientLight = new THREE.AmbientLight(0xffffff, 0.6);
+    scene.add(ambientLight);
+    const dirLight = new THREE.DirectionalLight(0xffffff, 0.8);
+    dirLight.position.set(20, 50, 20);
+    dirLight.castShadow = true;
+    dirLight.shadow.mapSize.width = 2048;
+    dirLight.shadow.mapSize.height = 2048;
+    scene.add(dirLight);
+
+    // --- PAVIMENTO (NEVE) ---
+    const planeGeometry = new THREE.PlaneGeometry(200, 200);
+    const planeMaterial = new THREE.MeshStandardMaterial({ color: 0xffffff });
+    const plane = new THREE.Mesh(planeGeometry, planeMaterial);
+    plane.rotation.x = -Math.PI / 2;
+    plane.receiveShadow = true;
+    scene.add(plane);
+
+    // --- VARIABILI GIOCO ---
+    let score = 0;
+    let isGameOver = false;
+    const playerSpeed = 0.3;
+    let grinchSpeed = 0.18; 
+    const inputs = { forward: false, backward: false, left: false, right: false };
+    const obstacles = [];
+
+    // --- GIOCATORE (Un "Omino" stilizzato) ---
+    const playerGroup = new THREE.Group();
+    
+    // Corpo
+    const bodyGeo = new THREE.BoxGeometry(1, 1, 1);
+    const bodyMat = new THREE.MeshStandardMaterial({ color: 0x3498db }); // Blu
+    const playerBody = new THREE.Mesh(bodyGeo, bodyMat);
+    playerBody.position.y = 0.5;
+    playerBody.castShadow = true;
+    playerGroup.add(playerBody);
+    
+    // Testa
+    const headGeo = new THREE.SphereGeometry(0.4, 16, 16);
+    const headMat = new THREE.MeshStandardMaterial({ color: 0xffccaa });
+    const playerHead = new THREE.Mesh(headGeo, headMat);
+    playerHead.position.y = 1.2;
+    playerGroup.add(playerHead);
+
+    scene.add(playerGroup);
+
+    // --- GRINCH (Nemico) ---
+    const grinchGroup = new THREE.Group();
+    
+    // Corpo Grinch (Alto e verde)
+    const gBodyGeo = new THREE.CylinderGeometry(0.4, 0.6, 2.5, 8);
+    const gBodyMat = new THREE.MeshStandardMaterial({ color: 0x2ecc71 }); // Verde Grinch
+    const grinchMesh = new THREE.Mesh(gBodyGeo, gBodyMat);
+    grinchMesh.position.y = 1.25;
+    grinchMesh.castShadow = true;
+    grinchGroup.add(grinchMesh);
+
+    // Cappello Santa (Per prenderci in giro)
+    const hatGeo = new THREE.ConeGeometry(0.3, 0.6, 16);
+    const hatMat = new THREE.MeshStandardMaterial({ color: 0xe74c3c });
+    const hat = new THREE.Mesh(hatGeo, hatMat);
+    hat.position.y = 2.6;
+    grinchGroup.add(hat);
+
+    grinchGroup.position.set(20, 0, 20);
+    scene.add(grinchGroup);
+
+    // --- AMBIENTE: MERCATINO DI NATALE ---
+    function createBooth(x, z) {
+        // Struttura legno
+        const boothGeo = new THREE.BoxGeometry(3, 2.5, 3);
+        const boothMat = new THREE.MeshStandardMaterial({ color: 0x8B4513 }); // Marrone
+        const booth = new THREE.Mesh(boothGeo, boothMat);
+        booth.position.set(x, 1.25, z);
+        booth.castShadow = true;
+        scene.add(booth);
+        obstacles.push(booth);
+
+        // Tetto (Neve)
+        const roofGeo = new THREE.ConeGeometry(2.5, 1.5, 4);
+        const roofMat = new THREE.MeshStandardMaterial({ color: 0xffffff }); // Bianco
+        const roof = new THREE.Mesh(roofGeo, roofMat);
+        roof.position.set(x, 3.25, z);
+        roof.rotation.y = Math.PI / 4;
+        scene.add(roof);
+    }
+
+    function createTree(x, z) {
+        const trunkGeo = new THREE.CylinderGeometry(0.2, 0.2, 1, 8);
+        const trunkMat = new THREE.MeshStandardMaterial({ color: 0x3e2723 });
+        const trunk = new THREE.Mesh(trunkGeo, trunkMat);
+        trunk.position.set(x, 0.5, z);
+        scene.add(trunk);
+        obstacles.push(trunk); // Gli alberi bloccano
+
+        const leavesGeo = new THREE.ConeGeometry(1.5, 3, 8);
+        const leavesMat = new THREE.MeshStandardMaterial({ color: 0x0f5f0f });
+        const leaves = new THREE.Mesh(leavesGeo, leavesMat);
+        leaves.position.set(x, 2, z);
+        leaves.castShadow = true;
+        scene.add(leaves);
+    }
+
+    // Generiamo il mercatino random
+    for(let i=0; i<15; i++) {
+        let bx = (Math.random() - 0.5) * 80;
+        let bz = (Math.random() - 0.5) * 80;
+        // Evitiamo il centro (spawn player)
+        if(Math.abs(bx) > 5 || Math.abs(bz) > 5) createBooth(bx, bz);
+    }
+    for(let i=0; i<30; i++) {
+        let tx = (Math.random() - 0.5) * 90;
+        let tz = (Math.random() - 0.5) * 90;
+        if(Math.abs(tx) > 5 || Math.abs(tz) > 5) createTree(tx, tz);
+    }
+
+    // --- DECORAZIONE (Obiettivo) ---
+    const decoGeo = new THREE.SphereGeometry(0.5, 16, 16);
+    const decoMat = new THREE.MeshStandardMaterial({ color: 0xff0000, metalness: 0.7, roughness: 0.2 });
+    const decoration = new THREE.Mesh(decoGeo, decoMat);
+    scene.add(decoration);
+    
+    function spawnDecoration() {
+        decoration.position.x = (Math.random() - 0.5) * 60;
+        decoration.position.z = (Math.random() - 0.5) * 60;
+        decoration.position.y = 0.5;
+    }
+    spawnDecoration();
+
+    // --- SISTEMA NEVE ---
+    const snowCount = 1000;
+    const snowGeo = new THREE.BufferGeometry();
+    const snowPos = [];
+    for(let i=0; i<snowCount; i++) {
+        snowPos.push((Math.random() - 0.5) * 100); // x
+        snowPos.push(Math.random() * 20);          // y
+        snowPos.push((Math.random() - 0.5) * 100); // z
+    }
+    snowGeo.setAttribute('position', new THREE.Float32BufferAttribute(snowPos, 3));
+    const snowMat = new THREE.PointsMaterial({ color: 0xffffff, size: 0.2, transparent: true });
+    const snowSystem = new THREE.Points(snowGeo, snowMat);
+    scene.add(snowSystem);
+
+    // --- CONTROLLI ---
+    document.addEventListener('keydown', (e) => {
+        if(e.key === "ArrowUp" || e.key === "w") inputs.forward = true;
+        if(e.key === "ArrowDown" || e.key === "s") inputs.backward = true;
+        if(e.key === "ArrowLeft" || e.key === "a") inputs.left = true;
+        if(e.key === "ArrowRight" || e.key === "d") inputs.right = true;
+    });
+    document.addEventListener('keyup', (e) => {
+        if(e.key === "ArrowUp" || e.key === "w") inputs.forward = false;
+        if(e.key === "ArrowDown" || e.key === "s") inputs.backward = false;
+        if(e.key === "ArrowLeft" || e.key === "a") inputs.left = false;
+        if(e.key === "ArrowRight" || e.key === "d") inputs.right = false;
+    });
+
+    // --- LOOP DI GIOCO ---
+    function animate() {
+        if(isGameOver) return;
+
+        requestAnimationFrame(animate);
+
+        // 1. Movimento Giocatore
+        let moveX = 0; 
+        let moveZ = 0;
+        if(inputs.forward) moveZ = -playerSpeed;
+        if(inputs.backward) moveZ = playerSpeed;
+        if(inputs.left) moveX = -playerSpeed;
+        if(inputs.right) moveX = playerSpeed;
+
+        playerGroup.position.x += moveX;
+        playerGroup.position.z += moveZ;
+
+        // 2. Movimento Grinch (AI Semplice - Insegue)
+        const dx = playerGroup.position.x - grinchGroup.position.x;
+        const dz = playerGroup.position.z - grinchGroup.position.z;
+        const distance = Math.sqrt(dx*dx + dz*dz);
+        
+        if(distance > 0.1) {
+            grinchGroup.position.x += (dx / distance) * grinchSpeed;
+            grinchGroup.position.z += (dz / distance) * grinchSpeed;
+            grinchGroup.lookAt(playerGroup.position);
+        }
+
+        // 3. Collisione Giocatore vs Decorazione
+        const distDeco = playerGroup.position.distanceTo(decoration.position);
+        if(distDeco < 1.5) {
+            score++;
+            document.getElementById('score').innerText = score;
+            spawnDecoration();
+            grinchSpeed += 0.005; // Il Grinch diventa più veloce!
+        }
+
+        // 4. Collisione Giocatore vs Grinch
+        if(distance < 1.2) {
+            isGameOver = true;
+            document.getElementById('gameOver').style.display = 'block';
+            document.getElementById('finalScore').innerText = score;
+        }
+
+        // 5. Animazione Neve
+        const positions = snowSystem.geometry.attributes.position.array;
+        for(let i=1; i<positions.length; i+=3) {
+            positions[i] -= 0.1;
+            if(positions[i] < 0) positions[i] = 20;
+        }
+        snowSystem.geometry.attributes.position.needsUpdate = true;
+
+        // 6. Telecamera (Terza persona)
+        camera.position.x = playerGroup.position.x;
+        camera.position.y = playerGroup.position.y + 10;
+        camera.position.z = playerGroup.position.z + 15;
+        camera.lookAt(playerGroup.position);
+
+        renderer.render(scene, camera);
+    }
+
+    // Adatta al ridimensionamento finestra
+    window.addEventListener('resize', () => {
+        camera.aspect = window.innerWidth / window.innerHeight;
+        camera.updateProjectionMatrix();
+        renderer.setSize(window.innerWidth, window.innerHeight);
+    });
+
+    animate();
+</script>
+</body>
+</html>
