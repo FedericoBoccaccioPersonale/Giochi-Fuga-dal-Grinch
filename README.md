@@ -2,6 +2,7 @@
 https://federicoboccaccio.wordpress.com/
 
 Ispirato da https://www.linkedin.com/posts/sara-buscemi-92b357139_gemini3pro-ai-gemini3pro-ugcPost-7397222432551387136-L4xz<br>
+Usando lo stesso promp.<br>
 Solo che quando sono tornato su Linkedin per commentare il post ha deciso che era la mia volontà di caricare i nuovi post e ha cancellato il commento già scritto! Quanto è fatto male quel sito!
 
 # Gioca
