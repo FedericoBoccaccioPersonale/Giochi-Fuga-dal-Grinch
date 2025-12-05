@@ -6,7 +6,7 @@ Usando lo stesso prompt.<br>
 Solo che quando sono tornato su Linkedin per commentare il post ha deciso che era la mia volontà di caricare i nuovi post e ha cancellato il commento già scritto! Quanto è fatto male quel sito!
 
 # Gioca
-Non ho creare release, ma puoi scaricare il file o🌐 [Giocare on line](https://federicoboccacciopersonale.github.io/Giochi-Fuga-dal-Grinch/)
+Non ho creato release, ma puoi scaricare il file o 🌐 [Giocare on line](https://federicoboccacciopersonale.github.io/Giochi-Fuga-dal-Grinch/)
 
 # Informazioni
 Diversamente dagli altri miei progetti, questo è solo su GitHub.
